@@ -48,13 +48,127 @@ namespace anystring
             }
 
         }
+
+        public string ParseAnystr(Anystr e)
+        {
+            e.def[0] = ParseMoncodt(e.def[0]);
+            string ret = "";
+            if (e.def[0] == "conststr")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for conststr");
+                ret += ParseMoncodt(e.def[1]);
+            }
+            else if (e.def[0] == "constint")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for constint");
+                ret += ParseMoncodt(e.def[1]);
+            }
+            else if (e.def[0] == "constpure" || e.def[0] == "const")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for const");
+                ret += ParseMoncodt(e.def[1]);
+            }
+            else if (e.def[0] == "pure")
+            {
+                if (e.def.Count <= 1) ret += "<pure>";
+                else ret += e.def[1];
+            }
+            else if (e.def[0] == "sum")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for sum");
+                e.def[1] = ParseMoncodt(e.def[1]);
+                e.def[2] = ParseMoncodt(e.def[2]);
+                ret += (Convert.ToInt32(e.def[1]) + Convert.ToInt32(e.def[2])).ToString();
+            }
+            else if (e.def[0] == "rsum")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
+                ret += (Convert.ToDouble(ParseMoncodt(e.def[1])) + Convert.ToDouble(ParseMoncodt(e.def[2]))).ToString();
+            }
+            else if (e.def[0] == "prod")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for prod");
+                e.def[1] = ParseMoncodt(e.def[1]);
+                e.def[2] = ParseMoncodt(e.def[2]);
+                ret += (Convert.ToInt32(e.def[1]) * Convert.ToInt32(e.def[2])).ToString();
+            }
+            else if (e.def[0] == "rprod")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
+                ret += (Convert.ToDouble(ParseMoncodt(e.def[1])) * Convert.ToDouble(ParseMoncodt(e.def[2]))).ToString();
+            }
+            else if (e.def[0] == "input")
+            {
+                saveFileDialog1.ShowDialog();
+                ret += saveFileDialog1.FileName.Split('\\').Last();
+            }
+            else if (e.def[0] == "equal")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for equal");
+                ret += (ParseMoncodt(e.def[1]) == ParseMoncodt(e.def[2]) ? "true" : "false");
+            }
+            else if (e.def[0] == "if")
+            {
+                if (e.def.Count <= 2)
+                {
+                    Debug("error: no enough parameters for if");
+                    //ret += "<if_error>";
+                }
+                else
+                {
+                    e.def[1] = ParseMoncodt(e.def[1]);
+                    if (e.def[1] == "true") ret += ParseMoncodt(e.def[2]);
+                    else if (e.def[1] == "false")
+                    {
+                        if (e.def.Count > 3) ret += ParseMoncodt(e.def[3]);
+                    }
+                    else
+                    {
+                        Debug("error: if no proper return value");
+                        //ret += "<if_error>";
+                    }
+                }
+            }
+            else if (e.def[0] == "repeat" || e.def[0] == "rep")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for repeat");
+                int x = Convert.ToInt32(ParseMoncodt(e.def[1]));
+                while (x-- > 0)
+                {
+                    ret += ParseMoncodt(e.def[2]);
+                }
+            }
+            else if (e.def[0] == "nl")
+            {
+                ret += "\r\n";
+            }
+            
+            if(e.def[0] == "len" || e.def[0] == "length")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for len");
+                return e.def[1].Length.ToString();
+            }
+
+            {
+                ret = "<";
+                for (int i = 0; i < e.def.Count; i++) ret += ParseMoncodt(e.def[i]) + ",";
+                foreach (var par in e.info)
+                {
+                    for (int j = 0; j < par.Value.Count; j++)
+                        ret += par.Key + "=" + ParseMoncodt(par.Value[j]) + ",";
+                }
+                ret = ret.Remove(ret.Length - 1);
+                ret += ">";
+            }
+            return ret;
+        }
        
         public bool RealCharMatch(string s, int i, char c)
         {
             return s[i] == c;
             //return i != s.Length - 1 && s[i] == c && s[i + 1] == c;
         }
-        public string Parse(string s) // Moncodt
+        public string ParseMoncodt(string s) // Moncodt
         {
             //Debug("Parsing " + s);
             string ret = "";
@@ -71,7 +185,7 @@ namespace anystring
                         if (RealCharMatch(s, i, '>')) --bed;
                         if (bed == 0) break;
                     }
-                    ret += ParseSingleString(tas);
+                    ret += ParseAnystr(ParseSingleString(tas)); // tas is like "<...>"
                 }
                 else
                 {
@@ -81,8 +195,72 @@ namespace anystring
             //Debug(s + " -> " + ret);
             return ret;
         }
+        public bool IsDigit(char c)
+        {
+            return c >= '0' && c <= '9';
+        }
+        public string Match(string t, string s)
+        {
+            s = ParseMoncodt(s);
+            int ti = 0, si = 0;
+            string ans = "true";
+            for(; si < s.Length;)
+            {
+                if(RealCharMatch(s, si, '<'))
+                {
+                    int bed = 0;
+                    string tas = "";
+                    for (; si < s.Length; si++)
+                    {
+                        tas += s[si];
+                        if (RealCharMatch(s, si, '<')) ++bed;
+                        if (RealCharMatch(s, si, '>')) --bed;
+                        if (bed == 0) break;
+                    } // tas is like "<...>"
+                    ++si;
+                    Anystr e = ParseSingleString(tas);
+                    e.def[0] = ParseMoncodt(e.def[0]);
+                    if(e.def[0] == "digits")
+                    {
+                        while (ti < t.Length && IsDigit(t[ti])) ++ti;
+                    }
+                    if(e.def[0] == "digit")
+                    {
+                        int oti = ti;
+                        if(e.info.ContainsKey("n"))
+                        {
+                            int n = Convert.ToInt32(ParseMoncodt(e.info["n"][0])); // here is a PM, so you have to think about it, but not now! 4.1
+                            while(n > 0 && ti<t.Length && IsDigit(t[ti]))
+                            {
+                                --n;
+                                ++ti;
+                            }
+                            if (ti - oti != n) return "false";
+                        }else if(e.info.ContainsKey("from"))
+                        {
+
+                        }
+                        else
+                        {
+                            if (ti >= t.Length || !IsDigit(t[ti])) return "false";
+                            ++ti;
+                        }
+                    }
+                }
+                else
+                {
+                    if (ti >= t.Length || si >= s.Length) return "false";
+                    if (t[ti] != s[si]) return "false";
+                    ++ti; ++si;
+                }
+
+                if (ti == t.Length && si == s.Length) break;
+                //if (ti == t.Length || si == s.Length) return "false";
+            }
+            return ans;
+        }
         //<abc,def=gd,dsf=gt>
-        public string ParseSingleString(string s) // Anystring(string type)
+        public Anystr ParseSingleString(string s) // Anystring(string type)
         {
             //Debug("Parsing "+s);
             string ss = s; s = "";
@@ -107,7 +285,7 @@ namespace anystring
                 int p = -1;
                 for (int j = 0; j < doi[i].Length; j++)
                 {
-                    if (doi[i][j] == '<') break;
+                    if (doi[i][j] == '<') break;  // amazing
                     if (doi[i][j] == '=')
                     {
                         p = j + 1;
@@ -130,7 +308,7 @@ namespace anystring
                     for (int j = p; j < doi[i].Length; j++) after += doi[i][j];
                     //Debug("after is " + after);
                     if (!tmp.info.ContainsKey(before)) tmp.info.Add(before, new List<string>());
-                    tmp.info[before].Add(Parse(after));
+                    tmp.info[before].Add(ParseMoncodt(after));
                 }
                 //Debug(doi[i]);
             }
@@ -141,113 +319,14 @@ namespace anystring
             return ret;
             */
             Anystr e = tmp;
-            e.def[0] = Parse(e.def[0]);
-            string ret = "";
-            if (e.def[0] == "conststr")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for conststr");
-                ret += Parse(e.def[1]);
-            }
-            else if (e.def[0] == "constint")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for constint");
-                ret += Parse(e.def[1]);
-            }
-            else if (e.def[0] == "constpure" || e.def[0] == "const")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for const");
-                ret += Parse(e.def[1]);
-            }
-            else if(e.def[0] == "pure")
-            {
-                if (e.def.Count <= 1) ret += "<pure>";
-                else ret += e.def[1];
-            }
-            else if (e.def[0] == "sum")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for sum");
-                e.def[1] = Parse(e.def[1]);
-                e.def[2] = Parse(e.def[2]);
-                ret += (Convert.ToInt32(e.def[1]) + Convert.ToInt32(e.def[2])).ToString();
-            }
-            else if (e.def[0] == "rsum")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
-                ret += (Convert.ToDouble(Parse(e.def[1])) + Convert.ToDouble(Parse(e.def[2]))).ToString();
-            }
-            else if(e.def[0] == "prod")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for prod");
-                e.def[1] = Parse(e.def[1]);
-                e.def[2] = Parse(e.def[2]);
-                ret += (Convert.ToInt32(e.def[1]) * Convert.ToInt32(e.def[2])).ToString();
-            }
-            else if (e.def[0] == "rprod")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
-                ret += (Convert.ToDouble(Parse(e.def[1])) * Convert.ToDouble(Parse(e.def[2]))).ToString();
-            }
-            else if (e.def[0] == "input")
-            {
-                saveFileDialog1.ShowDialog();
-                ret += saveFileDialog1.FileName.Split('\\').Last();
-            }
-            else if (e.def[0] == "equal")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for equal");
-                ret += (Parse(e.def[1]) == Parse(e.def[2]) ? "true" : "false");
-            }
-            else if (e.def[0] == "if")
-            {
-                if (e.def.Count <= 2)
-                {
-                    Debug("error: no enough parameters for if");
-                    //ret += "<if_error>";
-                }
-                else
-                {
-                    e.def[1] = Parse(e.def[1]);
-                    if (e.def[1] == "true") ret += Parse(e.def[2]);
-                    else if (e.def[1] == "false")
-                    {
-                        if (e.def.Count > 3) ret += Parse(e.def[3]);
-                    }
-                    else
-                    {
-                        Debug("error: if no proper return value");
-                        //ret += "<if_error>";
-                    }
-                }
-            }
-            else if(e.def[0] == "repeat" || e.def[0] == "rep")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for repeat");
-                int x = Convert.ToInt32(Parse(e.def[1]));
-                while(x-- > 0)
-                {
-                    ret += Parse(e.def[2]);
-                }
-            }
-            else if(e.def[0] == "nl")
-            {
-                ret += "\r\n";
-            }
-            else
-            {
-                ret = "<";
-                for (int i = 0; i < e.def.Count; i++) ret += Parse(e.def[i]) + ",";
-                foreach (var par in e.info)
-                {
-                    for (int j = 0; j < par.Value.Count; j++)
-                        ret += par.Key + "=" + par.Value[j] + ",";
-                }
-                ret = ret.Remove(ret.Length - 1);
-                ret += ">";
-            }
+            return e;
+            /*
+            string ret = ParseAnystr(e);
             return ret;
+            */
         }
 
-
+        
 
     
  
@@ -266,11 +345,24 @@ namespace anystring
         {
             try
             {
-                Debug(Parse(textBox1.Text));
+                Debug(ParseMoncodt(textBox1.Text));
                 Debug("finished.");
             }
             catch {
                 Debug("something wrong happened..");
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Debug(Match(textBox3.Text, textBox1.Text));
+                Debug("match finished.");
+            }
+            catch
+            {
+                Debug("something went wrong..");
             }
         }
     }
