@@ -48,68 +48,13 @@ namespace anystring
             }
 
         }
-        public string ParseAnystr(Anystr e)
-        {
-            if (e.def[0] == "conststr")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for conststr");
-                return e.def[1];
-            }
-            if (e.def[0] == "constint")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for constint");
-                return e.def[1];
-            }
-            if (e.def[0] == "constpure" || e.def[0] == "const")
-            {
-                if (e.def.Count <= 1) Debug("error: no enough parameters for const");
-                return e.def[1];
-            }
-            if (e.def[0] == "sum")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for sum");
-                return (Convert.ToInt32(e.def[1]) + Convert.ToInt32(e.def[2])).ToString();
-            }
-            if (e.def[0] == "rsum")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
-                return (Convert.ToDouble(e.def[1]) + Convert.ToDouble(e.def[2])).ToString();
-            }
-            if(e.def[0] == "input")
-            {
-                saveFileDialog1.ShowDialog();
-                return saveFileDialog1.FileName.Split('\\').Last();
-            }
-            if(e.def[0] == "equal")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for equal");
-                return (e.def[1] == e.def[2] ? "true" : "false");
-            }
-            if(e.def[0] == "if")
-            {
-                if (e.def.Count <= 2) Debug("error: no enough parameters for if");
-                if (e.def[1] == "true") return e.def[2];
-                if (e.def.Count >= 3 && e.def[1] == "false") return e.def[3];
-                Debug("error: if neither true nor false");
-                return "";
-            }
-            string ret = "<";
-            for (int i = 0; i < e.def.Count; i++) ret += e.def[i] + ",";
-            foreach (var par in e.info)
-            {
-                for (int j = 0; j < par.Value.Count; j++)
-                    ret += par.Key + "=" + par.Value[j] + ",";
-            }
-            ret = ret.Remove(ret.Length - 1);
-            ret += ">";
-            return ret;
-        }
+       
         public bool RealCharMatch(string s, int i, char c)
         {
             return s[i] == c;
             //return i != s.Length - 1 && s[i] == c && s[i + 1] == c;
         }
-        public string ParseMoncodt(string s) // Moncodt
+        public string Parse(string s) // Moncodt
         {
             //Debug("Parsing " + s);
             string ret = "";
@@ -133,7 +78,7 @@ namespace anystring
                     ret += s[i];
                 }
             }
-            Debug(s + " -> " + ret);
+            //Debug(s + " -> " + ret);
             return ret;
         }
         //<abc,def=gd,dsf=gt>
@@ -171,23 +116,134 @@ namespace anystring
                 }
                 if (p == -1)
                 {
-                    tmp.def.Add(ParseMoncodt(doi[i]));
+                    //tmp.def.Add(ParseMoncodt(doi[i]));
+                    tmp.def.Add(doi[i]);
                 }
                 else
                 {
+                    // now I'm not getting with "=" section...
+                    // know that this may lead a long-time nonuse of "="... 4.1
+                    // mik led'n Nep'"=" lme Zuz
                     string before = "", after = "";
 
                     for (int j = 0; j < p - 1; j++) before += doi[i][j];
                     for (int j = p; j < doi[i].Length; j++) after += doi[i][j];
                     //Debug("after is " + after);
                     if (!tmp.info.ContainsKey(before)) tmp.info.Add(before, new List<string>());
-                    tmp.info[before].Add(ParseMoncodt(after));
+                    tmp.info[before].Add(Parse(after));
                 }
                 //Debug(doi[i]);
             }
             if (tmp.def.Count == 0) tmp.def.Add("undefined");
+            /*
             string ret = ParseAnystr(tmp);
             Debug(ss + " -> " + ret);
+            return ret;
+            */
+            Anystr e = tmp;
+            e.def[0] = Parse(e.def[0]);
+            string ret = "";
+            if (e.def[0] == "conststr")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for conststr");
+                ret += Parse(e.def[1]);
+            }
+            else if (e.def[0] == "constint")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for constint");
+                ret += Parse(e.def[1]);
+            }
+            else if (e.def[0] == "constpure" || e.def[0] == "const")
+            {
+                if (e.def.Count <= 1) Debug("error: no enough parameters for const");
+                ret += Parse(e.def[1]);
+            }
+            else if(e.def[0] == "pure")
+            {
+                if (e.def.Count <= 1) ret += "<pure>";
+                else ret += e.def[1];
+            }
+            else if (e.def[0] == "sum")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for sum");
+                e.def[1] = Parse(e.def[1]);
+                e.def[2] = Parse(e.def[2]);
+                ret += (Convert.ToInt32(e.def[1]) + Convert.ToInt32(e.def[2])).ToString();
+            }
+            else if (e.def[0] == "rsum")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
+                ret += (Convert.ToDouble(Parse(e.def[1])) + Convert.ToDouble(Parse(e.def[2]))).ToString();
+            }
+            else if(e.def[0] == "prod")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for prod");
+                e.def[1] = Parse(e.def[1]);
+                e.def[2] = Parse(e.def[2]);
+                ret += (Convert.ToInt32(e.def[1]) * Convert.ToInt32(e.def[2])).ToString();
+            }
+            else if (e.def[0] == "rprod")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for rsum");
+                ret += (Convert.ToDouble(Parse(e.def[1])) * Convert.ToDouble(Parse(e.def[2]))).ToString();
+            }
+            else if (e.def[0] == "input")
+            {
+                saveFileDialog1.ShowDialog();
+                ret += saveFileDialog1.FileName.Split('\\').Last();
+            }
+            else if (e.def[0] == "equal")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for equal");
+                ret += (Parse(e.def[1]) == Parse(e.def[2]) ? "true" : "false");
+            }
+            else if (e.def[0] == "if")
+            {
+                if (e.def.Count <= 2)
+                {
+                    Debug("error: no enough parameters for if");
+                    //ret += "<if_error>";
+                }
+                else
+                {
+                    e.def[1] = Parse(e.def[1]);
+                    if (e.def[1] == "true") ret += Parse(e.def[2]);
+                    else if (e.def[1] == "false")
+                    {
+                        if (e.def.Count > 3) ret += Parse(e.def[3]);
+                    }
+                    else
+                    {
+                        Debug("error: if no proper return value");
+                        //ret += "<if_error>";
+                    }
+                }
+            }
+            else if(e.def[0] == "repeat" || e.def[0] == "rep")
+            {
+                if (e.def.Count <= 2) Debug("error: no enough parameters for repeat");
+                int x = Convert.ToInt32(Parse(e.def[1]));
+                while(x-- > 0)
+                {
+                    ret += Parse(e.def[2]);
+                }
+            }
+            else if(e.def[0] == "nl")
+            {
+                ret += "\r\n";
+            }
+            else
+            {
+                ret = "<";
+                for (int i = 0; i < e.def.Count; i++) ret += Parse(e.def[i]) + ",";
+                foreach (var par in e.info)
+                {
+                    for (int j = 0; j < par.Value.Count; j++)
+                        ret += par.Key + "=" + par.Value[j] + ",";
+                }
+                ret = ret.Remove(ret.Length - 1);
+                ret += ">";
+            }
             return ret;
         }
 
@@ -210,7 +266,7 @@ namespace anystring
         {
             try
             {
-                Debug(ParseMoncodt(textBox1.Text));
+                Debug(Parse(textBox1.Text));
                 Debug("finished.");
             }
             catch {
